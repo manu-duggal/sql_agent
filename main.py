@@ -123,6 +123,41 @@ It contains information about:
 - 🎧 Tracks and genres
 - 👥 Customers
 - 🧾 Invoices and sales transactions
+
+You can think of it as a simplified version of an online music platform’s backend database.
+"""
+    )
+
+    st.markdown("---")
+
+    st.markdown(
+        """
+### ✅ What kind of questions can you ask?
+
+You can ask **read-only, analytical questions**, such as:
+
+- *Who is the most profitable artist?*
+- *Which customers have spent the most money?*
+- *How many customers are there in each country?*
+- *What are the top-selling genres?*
+- *Which albums generated the highest revenue?*
+
+The assistant works best with **specific, business-style questions**.
+"""
+    )
+
+    st.markdown("---")
+
+    st.markdown(
+        """
+### 🚫 What this assistant cannot do
+
+For safety reasons, the assistant **cannot**:
+- Create or modify tables
+- Insert, update, or delete data
+- Change database structure or schema
+
+It is strictly a **read-only analytics assistant**.
 """
     )
 
