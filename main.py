@@ -18,7 +18,9 @@ st.caption("Ask questions in English. Powered by LLaMA 3.3 + Groq.")
 # -----------------------------
 FORBIDDEN_INTENTS = [
     "create table",
+    "create a table",
     "write table",
+    "write a table",
     "insert",
     "update",
     "delete",
