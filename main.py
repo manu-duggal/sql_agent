@@ -28,6 +28,9 @@ FORBIDDEN_INTENTS = [
     "alter table",
     "truncate",
     "create schema",
+    "modify",
+    "change",
+    "alter"
 ]
 
 # -----------------------------
