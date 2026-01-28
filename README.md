@@ -80,7 +80,7 @@ This makes it ideal for:
 ---
 
 ## System Architecture
-
+<pre>
 User (Browser)
 ↓
 Streamlit Frontend
@@ -94,7 +94,7 @@ SQLite Database (Chinook)
 Result Explanation (LLM)
 ↓
 User-Friendly Answer
-
+</pre>
 
 ---
 
@@ -139,6 +139,7 @@ The assistant works best with **specific, analytical questions**.
 
 ## Project Structure
 
+<pre>
 genai-sql-assistant/
 │
 ├── main.py # Streamlit app (UI + orchestration)
@@ -150,7 +151,7 @@ genai-sql-assistant/
 ├── requirements.txt
 ├── .gitignore
 ├── README.md
-
+</pre>
 
 ---
 
@@ -160,18 +161,24 @@ genai-sql-assistant/
 ```bash
 git clone https://github.com/your-username/genai-sql-assistant.git
 cd genai-sql-assistant
-
+```
 ### 2️⃣ Create and activate virtual environment
+```
 python -m venv venv
 source venv/bin/activate   # macOS / Linux
 venv\Scripts\activate      # Windows
-
+```
 ### 3️⃣ Install dependencies
+```
 pip install -r requirements.txt
+```
 
 ### 4️⃣ Set environment variable
+```
 export GROQ_API_KEY="your_api_key_here"   # macOS / Linux
 set GROQ_API_KEY=your_api_key_here        # Windows
-
+```
 ### 5️⃣ Run the app
+```
 streamlit run main.py
+```
