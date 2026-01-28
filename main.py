@@ -1,7 +1,6 @@
 import streamlit as st
 from sql_engine import answer_question
 from langchain_groq import ChatGroq
-from langchain_core.output_parsers import StrOutputParser
 
 st.set_page_config(page_title="GenAI SQL Assistant", layout="centered")
 
@@ -27,9 +26,30 @@ if question:
             temperature=0
         )
 
-        explanation = (StrOutputParser() | explainer).invoke(
-            f"Explain this result conversationally:\nColumns: {cols}\nRows: {rows}"
-        )
+        explanation_prompt = f"""
+You are a data analyst answering a business question.
+
+Rules:
+- Answer the question directly in the first sentence.
+- Do NOT explain columns, schema, or SQL mechanics.
+- Do NOT speculate, hedge, or use uncertainty language.
+- Do NOT include meta commentary (e.g., "based on the data").
+- Be concise and confident.
+- If a numeric value exists, include it.
+- If there is exactly one result row, state it clearly.
+- If multiple rows exist, summarize patterns briefly in one sentence.
+
+Question:
+{question}
+
+Query Result:
+Columns: {cols}
+Rows: {rows}
+
+Answer:
+"""
+
+        explanation = explainer.invoke(explanation_prompt).content.strip()
 
     st.chat_message("assistant").write(explanation)
 
