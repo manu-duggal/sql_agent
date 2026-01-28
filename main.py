@@ -2,25 +2,25 @@ import streamlit as st
 from sql_engine import answer_question
 from langchain_groq import ChatGroq
 
-# -----------------------------
+# =====================================================
 # App Configuration
-# -----------------------------
+# =====================================================
 st.set_page_config(
     page_title="GenAI SQL Assistant",
     layout="centered"
 )
 
-# -----------------------------
+# =====================================================
 # Sidebar Navigation
-# -----------------------------
+# =====================================================
 page = st.sidebar.radio(
     "Navigation",
     ["🏠 Home", "💬 Ask Questions"]
 )
 
-# -----------------------------
+# =====================================================
 # Forbidden (Write / DDL) Intents
-# -----------------------------
+# =====================================================
 FORBIDDEN_INTENTS = [
     "create table",
     "create a table",
@@ -36,6 +36,36 @@ FORBIDDEN_INTENTS = [
     "modify",
     "change",
     "alter"
+]
+
+# =====================================================
+# Meta / Conversational Responses (Hybrid Mode)
+# =====================================================
+META_RESPONSES = {
+    "who are you": "I’m a GenAI-powered SQL assistant designed to help you explore a music store database using natural language.",
+    "who created you": "I was built as a GenAI project to demonstrate natural-language querying over structured data.",
+    "who made you": "I was created as part of a GenAI SQL assistant project.",
+    "what can you do": "I can answer analytical questions about artists, customers, albums, and sales from the database.",
+    "what are you": "I’m a read-only data analysis assistant that answers questions using SQL behind the scenes.",
+    "you are not making any sense": "Sorry about that. Please ask a clear question related to the database, and I’ll help."
+}
+
+# =====================================================
+# Vague / Underspecified Inputs
+# =====================================================
+VAGUE_INPUTS = [
+    "what",
+    "why",
+    "how",
+    "what?",
+    "why?",
+    "how?",
+    "for what",
+    "for what?",
+    "tell me more",
+    "explain",
+    "huh",
+    "?"
 ]
 
 # =====================================================
@@ -106,7 +136,7 @@ The assistant works best with **specific, business-style questions**.
 ### 🚫 What this assistant cannot do
 
 For safety reasons, the assistant **cannot**:
-- Create, modify, or delete tables
+- Create or modify tables
 - Insert, update, or delete data
 - Change database structure or schema
 
@@ -128,7 +158,9 @@ else:
     st.title("💬 Ask Questions")
     st.caption("Ask questions in English. Powered by LLaMA 3.3 + Groq.")
 
-    # Initialize chat state
+    # -----------------------------
+    # Chat State Initialization
+    # -----------------------------
     if "chat" not in st.session_state:
         st.session_state.chat = []
 
@@ -141,10 +173,46 @@ else:
     if question:
         st.chat_message("user").write(question)
 
-        lowered_question = question.lower()
+        lowered_question = question.lower().strip()
 
         # -----------------------------
-        # Intent Guardrail (Read-only)
+        # Meta / Conversational Handling
+        # -----------------------------
+        for key, response in META_RESPONSES.items():
+            if key in lowered_question:
+                st.chat_message("assistant").write(response)
+
+                st.session_state.chat.extend([
+                    {"role": "user", "content": question},
+                    {"role": "assistant", "content": response}
+                ])
+
+                st.stop()
+
+        # -----------------------------
+        # Vague / Underspecified Input Handling
+        # -----------------------------
+        if (
+            len(lowered_question.split()) <= 2
+            or lowered_question in VAGUE_INPUTS
+        ):
+            clarification_message = (
+                "I need a bit more detail to help you. "
+                "Please ask a specific question about the database, "
+                "such as artists, customers, albums, or sales."
+            )
+
+            st.chat_message("assistant").write(clarification_message)
+
+            st.session_state.chat.extend([
+                {"role": "user", "content": question},
+                {"role": "assistant", "content": clarification_message}
+            ])
+
+            st.stop()
+
+        # -----------------------------
+        # Forbidden Intent Guardrail
         # -----------------------------
         if any(intent in lowered_question for intent in FORBIDDEN_INTENTS):
             refusal_message = (
@@ -198,7 +266,9 @@ Answer:
 
             explanation = explainer.invoke(explanation_prompt).content.strip()
 
-        # Render response
+        # -----------------------------
+        # Render Assistant Response
+        # -----------------------------
         st.chat_message("assistant").write(explanation)
 
         st.session_state.chat.extend([
