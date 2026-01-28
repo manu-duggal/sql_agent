@@ -19,6 +19,12 @@ page = st.sidebar.radio(
 )
 
 # =====================================================
+# Constants & Thresholds
+# =====================================================
+MAX_ROWS_FOR_LLM_EXPLANATION = 10
+MAX_COLUMNS_FOR_TABLE_DISPLAY = 5
+
+# =====================================================
 # Forbidden (Write / DDL) Intents
 # =====================================================
 FORBIDDEN_INTENTS = [
@@ -39,7 +45,7 @@ FORBIDDEN_INTENTS = [
 ]
 
 # =====================================================
-# Meta / Conversational Responses (Hybrid Mode)
+# Meta / Conversational Responses
 # =====================================================
 META_RESPONSES = {
     "who are you": "I’m a GenAI-powered SQL assistant designed to help you explore a music store database using natural language.",
@@ -47,7 +53,7 @@ META_RESPONSES = {
     "who made you": "I was created as part of a GenAI SQL assistant project.",
     "what can you do": "I can answer analytical questions about artists, customers, albums, and sales from the database.",
     "what are you": "I’m a read-only data analysis assistant that answers questions using SQL behind the scenes.",
-    "you are not making any sense": "Sorry about that. Please ask a clear question related to the database, and I’ll help."
+    "you are not making any sense": "Sorry about that. Please ask a clear question related to the database."
 }
 
 # =====================================================
@@ -66,6 +72,17 @@ VAGUE_INPUTS = [
     "explain",
     "huh",
     "?"
+]
+
+# =====================================================
+# Overly Broad Queries
+# =====================================================
+BROAD_QUERIES = [
+    "show everything",
+    "show all data",
+    "give me everything",
+    "select *",
+    "all data"
 ]
 
 # =====================================================
@@ -106,41 +123,6 @@ It contains information about:
 - 🎧 Tracks and genres
 - 👥 Customers
 - 🧾 Invoices and sales transactions
-
-You can think of it as a simplified version of an online music platform’s backend database.
-"""
-    )
-
-    st.markdown("---")
-
-    st.markdown(
-        """
-### ✅ What kind of questions can you ask?
-
-You can ask **read-only, analytical questions**, such as:
-
-- *Who is the most profitable artist?*
-- *Which customers have spent the most money?*
-- *How many customers are there in each country?*
-- *What are the top-selling genres?*
-- *Which albums generated the highest revenue?*
-
-The assistant works best with **specific, business-style questions**.
-"""
-    )
-
-    st.markdown("---")
-
-    st.markdown(
-        """
-### 🚫 What this assistant cannot do
-
-For safety reasons, the assistant **cannot**:
-- Create or modify tables
-- Insert, update, or delete data
-- Change database structure or schema
-
-It is strictly a **read-only analytics assistant**.
 """
     )
 
@@ -158,13 +140,9 @@ else:
     st.title("💬 Ask Questions")
     st.caption("Ask questions in English. Powered by LLaMA 3.3 + Groq.")
 
-    # -----------------------------
-    # Chat State Initialization
-    # -----------------------------
     if "chat" not in st.session_state:
         st.session_state.chat = []
 
-    # Render chat history
     for msg in st.session_state.chat:
         st.chat_message(msg["role"]).write(msg["content"])
 
@@ -172,87 +150,116 @@ else:
 
     if question:
         st.chat_message("user").write(question)
-
         lowered_question = question.lower().strip()
 
-        # -----------------------------
+        # -------------------------------------------------
         # Meta / Conversational Handling
-        # -----------------------------
+        # -------------------------------------------------
         for key, response in META_RESPONSES.items():
             if key in lowered_question:
                 st.chat_message("assistant").write(response)
-
                 st.session_state.chat.extend([
                     {"role": "user", "content": question},
                     {"role": "assistant", "content": response}
                 ])
-
                 st.stop()
 
-        # -----------------------------
-        # Vague / Underspecified Input Handling
-        # -----------------------------
-        if (
-            len(lowered_question.split()) <= 2
-            or lowered_question in VAGUE_INPUTS
-        ):
-            clarification_message = (
+        # -------------------------------------------------
+        # Vague Input Handling
+        # -------------------------------------------------
+        if len(lowered_question.split()) <= 2 or lowered_question in VAGUE_INPUTS:
+            clarification = (
                 "I need a bit more detail to help you. "
-                "Please ask a specific question about the database, "
-                "such as artists, customers, albums, or sales."
+                "Please ask a specific question about artists, customers, albums, or sales."
             )
-
-            st.chat_message("assistant").write(clarification_message)
-
+            st.chat_message("assistant").write(clarification)
             st.session_state.chat.extend([
                 {"role": "user", "content": question},
-                {"role": "assistant", "content": clarification_message}
+                {"role": "assistant", "content": clarification}
             ])
-
             st.stop()
 
-        # -----------------------------
-        # Forbidden Intent Guardrail
-        # -----------------------------
+        # -------------------------------------------------
+        # Overly Broad Query Handling
+        # -------------------------------------------------
+        if any(bq in lowered_question for bq in BROAD_QUERIES):
+            warning = (
+                "That request is too broad. "
+                "Please narrow your question (for example, by artist, customer, country, or time period)."
+            )
+            st.chat_message("assistant").write(warning)
+            st.session_state.chat.extend([
+                {"role": "user", "content": question},
+                {"role": "assistant", "content": warning}
+            ])
+            st.stop()
+
+        # -------------------------------------------------
+        # Forbidden Intent Handling
+        # -------------------------------------------------
         if any(intent in lowered_question for intent in FORBIDDEN_INTENTS):
-            refusal_message = (
+            refusal = (
                 "I can’t create, modify, or delete database tables or data. "
-                "This assistant is designed strictly for read-only data analysis. "
-                "Please ask questions about existing data."
+                "This assistant is strictly for read-only data analysis."
             )
-
-            st.chat_message("assistant").write(refusal_message)
-
+            st.chat_message("assistant").write(refusal)
             st.session_state.chat.extend([
                 {"role": "user", "content": question},
-                {"role": "assistant", "content": refusal_message}
+                {"role": "assistant", "content": refusal}
             ])
-
             st.stop()
 
-        # -----------------------------
-        # Core SQL + Explanation Flow
-        # -----------------------------
+        # -------------------------------------------------
+        # Core SQL + Response Flow
+        # -------------------------------------------------
         with st.spinner("Thinking..."):
             sql, cols, rows = answer_question(question)
 
-            explainer = ChatGroq(
-                model="llama-3.3-70b-versatile",
-                temperature=0
-            )
+            # -----------------------------
+            # Empty Result Set
+            # -----------------------------
+            if not rows:
+                explanation = (
+                    "No results were found for this query. "
+                    "You may want to rephrase the question or check if the data exists."
+                )
 
-            explanation_prompt = f"""
+            # -----------------------------
+            # Large Single-Column Lists
+            # -----------------------------
+            elif len(rows) > MAX_ROWS_FOR_LLM_EXPLANATION and len(cols) == 1:
+                items = [str(r[0]) for r in rows]
+                explanation = (
+                    f"Here are the {len(items)} {cols[0].lower()}:\n\n"
+                    + "\n".join(f"- {item}" for item in items)
+                )
+
+            # -----------------------------
+            # Very Wide Tables
+            # -----------------------------
+            elif len(cols) > MAX_COLUMNS_FOR_TABLE_DISPLAY:
+                explanation = (
+                    "The result contains many columns. "
+                    "Please refine your question to focus on specific information."
+                )
+
+            # -----------------------------
+            # Normal Analytical Case (LLM)
+            # -----------------------------
+            else:
+                explainer = ChatGroq(
+                    model="llama-3.3-70b-versatile",
+                    temperature=0
+                )
+
+                explanation_prompt = f"""
 You are a data analyst answering a business question.
 
 Rules:
 - Answer the question directly in the first sentence.
 - Do NOT explain columns, schema, or SQL mechanics.
-- Do NOT speculate, hedge, or use uncertainty language.
-- Do NOT include meta commentary.
+- Do NOT speculate or hedge.
 - Be concise and confident.
-- If a numeric value exists, include it.
-- If there is exactly one result row, state it clearly.
-- If multiple rows exist, summarize patterns briefly in one sentence.
 
 Question:
 {question}
@@ -263,14 +270,9 @@ Rows: {rows}
 
 Answer:
 """
+                explanation = explainer.invoke(explanation_prompt).content.strip()
 
-            explanation = explainer.invoke(explanation_prompt).content.strip()
-
-        # -----------------------------
-        # Render Assistant Response
-        # -----------------------------
         st.chat_message("assistant").write(explanation)
-
         st.session_state.chat.extend([
             {"role": "user", "content": question},
             {"role": "assistant", "content": explanation}
