@@ -85,6 +85,14 @@ BROAD_QUERIES = [
     "all data"
 ]
 
+SCHEMA_QUERIES = [
+    "list tables",
+    "show tables",
+    "names of all tables",
+    "what tables",
+    "database tables"
+]
+
 # =====================================================
 # 🏠 HOME / LANDING PAGE
 # =====================================================
@@ -242,6 +250,28 @@ else:
                 {"role": "user", "content": question},
                 {"role": "assistant", "content": refusal}
             ])
+            st.stop()
+
+        # -------------------------------------------------
+        # Schema / Table Listing Handling
+        # -------------------------------------------------
+        if any(sq in lowered_question for sq in SCHEMA_QUERIES):
+            sql, cols, rows = answer_question(question)
+
+            table_names = [r[0] for r in rows]
+
+            explanation = (
+                f"The database contains {len(table_names)} tables:\n\n"
+                + "\n".join(f"- {name}" for name in table_names)
+            )
+
+            st.chat_message("assistant").write(explanation)
+
+            st.session_state.chat.extend([
+                {"role": "user", "content": question},
+                {"role": "assistant", "content": explanation}
+            ])
+
             st.stop()
 
         # -------------------------------------------------
